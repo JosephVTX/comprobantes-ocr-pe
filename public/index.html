@@ -63,7 +63,7 @@ async function enviar(file) {
     });
     const d = await r.json();
     if (!r.ok) throw new Error(d.error ?? r.statusText);
-    panel.innerHTML = render(d, file.name);
+    panel.innerHTML = render(d, file.name, ` · ${r.headers.get("X-Time-Ms")} ms · ${r.headers.get("X-Model")}`);
     panel.querySelector("[data-copy]").onclick = () => navigator.clipboard.writeText(JSON.stringify(d, null, 2));
   } catch (e) {
     panel.innerHTML = `${badge(NO, "Error")} <span class="ml-2 text-sm text-slate-500">${esc(file.name)}</span>
@@ -71,20 +71,14 @@ async function enviar(file) {
   }
 }
 
-function render(d, name) {
-  const meta = d._meta ? ` · ${d._meta.ms} ms · ${d._meta.model}` : "";
-  const head = d.is_receipt ? badge(OK, "Comprobante de pago") : badge(NO, "No es un comprobante (ignorado)");
-  let body;
-  if (d.is_receipt) {
-    const campos = [["Método", d.method], ["Operación", d.operation], ["Cód. seguridad", d.security_code], ["Fecha", d.date], ["Hora", d.time], ["Receptor", d.receiver]];
-    body = `<div class="mt-3 text-2xl font-bold">${esc(d.currency)} ${Number(d.amount).toFixed(2)}</div>
+function render(d, name, meta) {
+  const head = d.length ? badge(OK, d.length + (d.length === 1 ? " comprobante" : " comprobantes")) : badge(NO, "No es un comprobante (ignorado)");
+  const campos = (r) => [["Método", r.method], ["Operación", r.operation], ["Cód. seguridad", r.security_code], ["Fecha", r.date], ["Hora", r.time], ["Receptor", r.receiver]];
+  const body = d.map((r) => `<div class="mt-3 text-2xl font-bold">${esc(r.currency)} ${Number(r.amount).toFixed(2)}</div>
       <div class="my-3 grid gap-2 grid-cols-[repeat(auto-fill,minmax(170px,1fr))]">
-        ${campos.filter(([, v]) => v != null && v !== "").map(([k, v]) =>
+        ${campos(r).filter(([, v]) => v != null && v !== "").map(([k, v]) =>
           `<div class="rounded-lg border border-slate-800 bg-slate-950 px-3 py-2"><small class="block text-xs text-slate-500">${k}</small>${esc(v)}</div>`).join("")}
-      </div>`;
-  } else {
-    body = `<p class="my-3 text-slate-400">No se detectó un comprobante.</p>`;
-  }
+      </div>`).join("");
   return `<div class="flex flex-wrap items-center gap-2">${head}
       <span class="text-sm text-slate-500">${esc(name)}${meta}</span>
       <button data-copy class="rounded-md bg-slate-800 px-3 py-1 text-sm hover:bg-slate-700">Copiar JSON</button></div>

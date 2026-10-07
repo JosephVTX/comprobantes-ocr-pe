@@ -17,9 +17,9 @@ export interface LlmClient {
   analizar(imagen: Buffer): Promise<Analisis>;
 }
 
-const PROMPT = `Read this Peruvian payment receipt (Yape, Plin, bank transfer, deposit). Reply ONLY with JSON:
-{"is_receipt":bool,"method":"Yape|Plin|BCP|Interbank|BBVA|...","amount":number,"currency":"PEN|USD","operation":"operation/transaction number","security_code":"Yape security code or null","date":"YYYY-MM-DD","time":"HH:mm 24h","receiver":"name or null"}
-Rules: copy digits exactly; use null for anything not visible; never invent. operation is only the number labeled operation/transaction (not phone/account). Invoices, sales tickets, price lists, or any image without an operation number are NOT receipts: reply {"is_receipt":false}.`;
+const PROMPT = `Read the Peruvian payment receipts (Yape, Plin, bank transfer, deposit) in the image; there may be one or several. Reply ONLY with a JSON array, one object per receipt:
+[{"method":"Yape|Plin|BCP|Interbank|BBVA|...","amount":number,"currency":"PEN|USD","operation":"operation/transaction number","security_code":"Yape security code or null","date":"YYYY-MM-DD","time":"HH:mm 24h","receiver":"name or null"}]
+Rules: copy digits exactly; use null for anything not visible; never invent. operation is only the number labeled operation/transaction (not phone/account). Invoices, sales tickets, price lists, or anything without an operation number are NOT receipts: reply [].`;
 
 const str = (v: unknown): string | null => (typeof v === "string" && v.trim() ? v.trim() : null);
 
@@ -32,37 +32,42 @@ export function extraerJson(texto: string): unknown {
   try {
     return JSON.parse(limpio);
   } catch {
-    const a = limpio.indexOf("{");
-    const b = limpio.lastIndexOf("}");
-    if (a !== -1 && b > a) return JSON.parse(limpio.slice(a, b + 1));
+    const i = limpio.search(/[[{]/);
+    const j = Math.max(limpio.lastIndexOf("]"), limpio.lastIndexOf("}"));
+    if (i !== -1 && j > i) return JSON.parse(limpio.slice(i, j + 1));
     throw new Error("La respuesta del modelo no contiene JSON válido.");
   }
 }
 
-export function normalizar(data: unknown): Receipt {
-  const d = (Array.isArray(data) ? data[0] : data) as Record<string, unknown> | undefined;
-  if (!d || typeof d !== "object") throw new Error("La respuesta JSON no tiene un formato válido.");
+export function normalizar(data: unknown): Receipt[] {
+  const lista = Array.isArray(data) ? data : data && typeof data === "object" ? [data] : null;
+  if (!lista) throw new Error("La respuesta JSON no tiene un formato válido.");
 
-  const amount = typeof d.amount === "number" && d.amount > 0 ? d.amount : 0;
-  if (d.is_receipt !== true || amount === 0 || !str(d.operation)) return { is_receipt: false };
-
-  return {
-    is_receipt: true,
-    method: str(d.method),
-    amount,
-    currency: str(d.currency) ?? "PEN",
-    operation: str(d.operation),
-    security_code: str(d.security_code),
-    date: str(d.date),
-    time: str(d.time),
-    receiver: str(d.receiver),
-  };
+  return lista.flatMap((x): Receipt[] => {
+    const d = x as Record<string, unknown> | null;
+    if (!d || typeof d !== "object") return [];
+    const amount = typeof d.amount === "number" && d.amount > 0 ? d.amount : 0;
+    const operation = str(d.operation);
+    if (amount === 0 || !operation || d.is_receipt === false) return [];
+    return [
+      {
+        method: str(d.method),
+        amount,
+        currency: str(d.currency) ?? "PEN",
+        operation,
+        security_code: str(d.security_code),
+        date: str(d.date),
+        time: str(d.time),
+        receiver: str(d.receiver),
+      },
+    ];
+  });
 }
 
 export function createOpenRouterClient(opts: LlmOptions): LlmClient {
   const doFetch = opts.fetch ?? fetch;
 
-  async function consultar(intento: (typeof INTENTOS)[number], dataUrl: string): Promise<Receipt> {
+  async function consultar(intento: (typeof INTENTOS)[number], dataUrl: string): Promise<Receipt[]> {
     const res = await doFetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${opts.apiKey}`, "Content-Type": "application/json" },
@@ -91,7 +96,7 @@ export function createOpenRouterClient(opts: LlmOptions): LlmClient {
       const errores: string[] = [];
       for (const intento of INTENTOS) {
         try {
-          return { receipt: await consultar(intento, dataUrl), model: intento.model };
+          return { receipts: await consultar(intento, dataUrl), model: intento.model };
         } catch (e) {
           errores.push(`${intento.model}: ${e instanceof Error ? e.message : String(e)}`);
         }

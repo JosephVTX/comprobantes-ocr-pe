@@ -76,8 +76,10 @@ export function createApp({ analyzer, limiter, apiKeys, authDisabled = false, ma
 
       const t0 = performance.now();
       try {
-        const { receipt, model } = await limiter.run(() => analyzer.analizar(buffer));
-        return c.json({ ...receipt, _meta: { ms: Math.round(performance.now() - t0), model } });
+        const { receipts, model } = await limiter.run(() => analyzer.analizar(buffer));
+        c.header("X-Model", model);
+        c.header("X-Time-Ms", String(Math.round(performance.now() - t0)));
+        return c.json(receipts);
       } catch (e) {
         if (e instanceof QueueFullError) {
           c.header("Retry-After", "10");

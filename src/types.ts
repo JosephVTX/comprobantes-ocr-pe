@@ -1,5 +1,4 @@
 export interface Receipt {
-  is_receipt: boolean;
   method?: string | null;
   amount?: number;
   currency?: string;
@@ -15,7 +14,7 @@ export interface Receipt {
 }
 
 export interface Analisis {
-  receipt: Receipt;
+  receipts: Receipt[];
   /** Modelo que respondió */
   model: string;
 }
