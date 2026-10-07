@@ -11,7 +11,7 @@ const NO_COMPROBANTE: Analisis = {
   motivo: "no",
   puntaje: 0,
   texto_detectado: "",
-  fuente: "ocr",
+  fuente: "llm",
 };
 
 let png: Buffer;
@@ -75,7 +75,7 @@ describe("POST /api/analizar", () => {
     const analizar = vi.fn(async () => NO_COMPROBANTE);
     const res = await post(montar({ analyzer: { analizar } }), png);
     expect(res.status).toBe(200);
-    expect(await res.json()).toMatchObject({ es_comprobante_pago: false, fuente: "ocr", _meta: { ms: expect.any(Number) } });
+    expect(await res.json()).toMatchObject({ es_comprobante_pago: false, fuente: "llm", _meta: { ms: expect.any(Number) } });
     expect(analizar).toHaveBeenCalledOnce();
   });
 

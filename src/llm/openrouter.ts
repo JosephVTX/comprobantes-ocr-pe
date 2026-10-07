@@ -1,9 +1,12 @@
 import sharp from "sharp";
 import type { CamposDetectados, Resultado } from "../types.js";
 
+/** Modelo y proveedor fijos: siempre este modelo, solo por Novita, sin respaldo a otros proveedores. */
+export const MODELO = "inclusionai/ling-3.0-flash-vl";
+const PROVIDER = { only: ["novita/bf16"], allow_fallbacks: false };
+
 export interface LlmOptions {
   apiKey: string;
-  model: string;
   timeoutMs: number;
   fetch?: typeof fetch;
 }
@@ -18,7 +21,7 @@ Analiza solo lo visible en la imagen. NO inventes datos: lo que no aparezca va e
 - codigo_seguridad: solo si aparece rotulado como "código de seguridad" (Yape). Va separado de codigo_operacion.
 - Respeta los números exactamente. monto es número. moneda: "PEN" soles, "USD" dólares.
 - metodo_pago (Yape, Plin, transferencia bancaria, depósito...) y entidad (BCP, Interbank, BBVA...) son distintos; entidad solo con evidencia.
-- Si la imagen no es un comprobante de pago: es_comprobante_pago false.
+- Solo son comprobantes de pago las constancias de Yape, Plin, transferencias, depósitos o pagos de apps/bancos (con número de operación o código de transacción). Una boleta, factura, ticket de compra, lista de precios, captura sin operación o cualquier otra imagen NO lo es: es_comprobante_pago false.
 Devuelve SOLO un JSON con estas claves: es_comprobante_pago, metodo_pago, entidad, tipo, monto, moneda, codigo_operacion, codigo_seguridad, fecha, hora, pagador, receptor, numero_cuenta_o_celular, concepto, confianza (0-1).`;
 
 const str = (v: unknown): string | null => (typeof v === "string" && v.trim() ? v.trim() : null);
@@ -105,9 +108,9 @@ export function createOpenRouterClient(opts: LlmOptions): LlmClient {
         headers: { Authorization: `Bearer ${opts.apiKey}`, "Content-Type": "application/json" },
         signal: AbortSignal.timeout(opts.timeoutMs),
         body: JSON.stringify({
-          model: opts.model,
+          model: MODELO,
+          provider: PROVIDER,
           temperature: 0,
-          response_format: { type: "json_object" },
           messages: [
             { role: "system", content: PROMPT },
             {

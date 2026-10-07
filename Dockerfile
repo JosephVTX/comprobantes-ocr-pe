@@ -15,10 +15,8 @@ RUN pnpm install --frozen-lockfile --prod
 
 FROM node:24-slim
 ENV NODE_ENV=production \
-    PORT=3000 \
-    TESSDATA_DIR=/app/tessdata
+    PORT=3000
 WORKDIR /app
-ADD --chown=node:node https://cdn.jsdelivr.net/npm/@tesseract.js-data/spa@1.0.0/4.0.0_best_int/spa.traineddata.gz /app/tessdata/spa.traineddata.gz
 COPY --chown=node:node package.json ./
 COPY --from=deps --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/dist ./dist

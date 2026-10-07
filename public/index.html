@@ -74,7 +74,6 @@ async function enviar(file) {
 function render(d, name) {
   const meta = d._meta ? ` · ${d._meta.ms} ms · ${d._meta.rssMB} MB` : "";
   const head = d.es_comprobante_pago ? badge(OK, "Comprobante de pago") : badge(NO, "No es un comprobante (ignorado)");
-  const fuente = badge(d.fuente === "llm" ? LLM : WAIT, d.fuente === "llm" ? "vía LLM" : "vía OCR");
   let body;
   if (d.es_comprobante_pago) {
     const campos = [["Método", d.metodo_pago], ["Entidad", d.entidad], ["Tipo", d.tipo], ["Operación", d.codigo_operacion],
@@ -88,7 +87,7 @@ function render(d, name) {
   } else {
     body = `<p class="my-3 text-slate-400">${esc(d.motivo)}</p>`;
   }
-  return `<div class="flex flex-wrap items-center gap-2">${head} ${fuente}
+  return `<div class="flex flex-wrap items-center gap-2">${head}
       <span class="text-sm text-slate-500">${esc(name)}${meta}</span>
       <button data-copy class="rounded-md bg-slate-800 px-3 py-1 text-sm hover:bg-slate-700">Copiar JSON</button></div>
     ${body}

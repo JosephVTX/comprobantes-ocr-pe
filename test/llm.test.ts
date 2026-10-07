@@ -50,7 +50,7 @@ describe("normalizar", () => {
 });
 
 describe("createOpenRouterClient", () => {
-  const opts = { apiKey: "sk-test", model: "m/x:free", timeoutMs: 5000 };
+  const opts = { apiKey: "sk-test", timeoutMs: 5000 };
 
   it("envía la imagen como data URL con la API key y parsea la respuesta", async () => {
     const fetchMock = vi.fn(async () => respuesta('{"es_comprobante_pago":true,"monto":10,"metodo_pago":"Plin"}'));
@@ -61,7 +61,8 @@ describe("createOpenRouterClient", () => {
     expect(url).toBe("https://openrouter.ai/api/v1/chat/completions");
     expect((init.headers as Record<string, string>).Authorization).toBe("Bearer sk-test");
     const body = JSON.parse(init.body as string);
-    expect(body.model).toBe("m/x:free");
+    expect(body.model).toBe("inclusionai/ling-3.0-flash-vl");
+    expect(body.provider).toEqual({ only: ["novita/bf16"], allow_fallbacks: false });
     expect(body.messages[1].content[1].image_url.url).toMatch(/^data:image\/jpeg;base64,/);
   });
 

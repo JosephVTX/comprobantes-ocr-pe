@@ -1,4 +1,4 @@
-export type Fuente = "ocr" | "llm";
+export type Fuente = "llm";
 
 export interface CamposDetectados {
   monto: boolean;
@@ -45,6 +45,4 @@ export type Resultado = ComprobanteValido | NoComprobante;
 /** Resultado final del analizador, con la fuente que lo produjo. */
 export type Analisis = Resultado & {
   fuente: Fuente;
-  /** Presente si el LLM se intentó y falló (se devuelve el resultado del OCR). */
-  llm_error?: string;
 };
