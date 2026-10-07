@@ -21,7 +21,14 @@ def get_ocr():
     # PP-OCRv5 (mismos modelos de PaddleOCR) ejecutado con onnxruntime: funciona en x86 y ARM
     from rapidocr import OCRVersion, RapidOCR
 
-    return RapidOCR(params={"Det.ocr_version": OCRVersion.PPOCRV5, "Rec.ocr_version": OCRVersion.PPOCRV5})
+    return RapidOCR(
+        params={
+            "Det.ocr_version": OCRVersion.PPOCRV5,
+            "Det.model_type": "mobile",
+            "Rec.ocr_version": OCRVersion.PPOCRV5,
+            "Rec.model_type": "mobile",
+        }
+    )
 
 
 def leer(img) -> list[str]:
