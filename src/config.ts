@@ -36,7 +36,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
           apiKey: llmKey,
           model: env.OPENROUTER_MODEL || "google/gemma-4-26b-a4b-it:free",
           timeoutMs: num(env.LLM_TIMEOUT_MS, 60_000),
-          minScore: num(env.LLM_MIN_SCORE, 2),
+          minScore: num(env.LLM_MIN_SCORE, 5),
         }
       : null,
   };

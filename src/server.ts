@@ -19,7 +19,7 @@ const analyzer = createAnalyzer({
   ocr,
   llm,
   anchos: config.ocrWidths,
-  llmMinScore: config.llm?.minScore ?? 2,
+  llmMinScore: config.llm?.minScore ?? 5,
   log: (m) => console.log(m),
 });
 

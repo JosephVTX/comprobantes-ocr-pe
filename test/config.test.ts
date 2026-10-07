@@ -16,7 +16,7 @@ describe("loadConfig", () => {
 
   it("activa el LLM solo si hay OPENROUTER_API_KEY", () => {
     const c = loadConfig({ API_KEYS: "a", OPENROUTER_API_KEY: "sk", OPENROUTER_MODEL: "x/y" });
-    expect(c.llm).toMatchObject({ apiKey: "sk", model: "x/y", minScore: 2 });
+    expect(c.llm).toMatchObject({ apiKey: "sk", model: "x/y", minScore: 5 });
   });
 
   it("ignora números inválidos y fuerza al menos 1 worker", () => {
