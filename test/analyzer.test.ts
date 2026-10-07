@@ -84,6 +84,24 @@ describe("analyzer híbrido", () => {
     expect(llm.analizar).not.toHaveBeenCalled();
   });
 
+  it("si solo falta el código de seguridad, lo lee con leerCodigo y no llama al LLM", async () => {
+    const llm = llmCon(async () => llmValido);
+    const ocr = { ...ocrCon(YAPE_SIN_DIGITOS), leerCodigo: vi.fn(async () => "291") };
+    const r = await createAnalyzer({ ...base, ocr, llm }).analizar(img);
+
+    expect(r).toMatchObject({ fuente: "ocr", codigo_seguridad: "291" });
+    expect(ocr.leerCodigo).toHaveBeenCalledTimes(1);
+    expect(llm.analizar).not.toHaveBeenCalled();
+  });
+
+  it("si leerCodigo no encuentra dígitos, sigue al LLM", async () => {
+    const llm = llmCon(async () => llmValido);
+    const ocr = { ...ocrCon(YAPE_SIN_DIGITOS), leerCodigo: vi.fn(async () => null) };
+    const r = await createAnalyzer({ ...base, ocr, llm }).analizar(img);
+    expect(r.fuente).toBe("llm");
+    expect(ocr.leerCodigo).toHaveBeenCalledTimes(1);
+  });
+
   it("reintenta con más resoluciones y luego cae al LLM si sigue incompleto", async () => {
     const llm = llmCon(async () => llmValido);
     const ocr = ocrCon(YAPE_SIN_DIGITOS);

@@ -28,12 +28,14 @@ describe("OCR real: comprobantes", () => {
     });
   });
 
-  it("Yape S/14 (código de seguridad solo lo lee el LLM)", async () => {
+  it("Yape S/14 (dígitos del código en cajas grises, lectura dedicada)", async () => {
     expect(await analyzer.analizar(img("comprobante2.jpg"))).toMatchObject({
       es_comprobante_pago: true,
       metodo_pago: "Yape",
       monto: 14,
       codigo_operacion: "27034291",
+      codigo_seguridad: "291",
+      fuente: "ocr",
       receptor: "Erick San*",
     });
   });

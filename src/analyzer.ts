@@ -27,12 +27,24 @@ export function createAnalyzer({ ocr, llm, anchos, llmMinScore, log = () => {} }
       const textos: string[] = [];
       let confianza = 0;
       let r: Resultado = parsear("", 0);
+      let codigoIntentado = false;
+
+      /** Yape: si solo falta el código de seguridad, se lee esa franja aparte antes de recurrir al LLM. */
+      const completarCodigo = async (): Promise<void> => {
+        if (codigoIntentado || !ocr.leerCodigo || !r.es_comprobante_pago || r.codigo_seguridad) return;
+        if (!/seguridad/i.test(r.texto_detectado)) return;
+        codigoIntentado = true;
+        const codigo = await ocr.leerCodigo(imagen, anchos[anchos.length - 1] ?? 1400).catch(() => null);
+        if (codigo) r = { ...r, codigo_seguridad: codigo, campos_detectados: { ...r.campos_detectados, codigo_seguridad: true } };
+      };
 
       for (const ancho of anchos) {
         const lectura = await ocr.leer(imagen, ancho);
         textos.push(lectura.texto);
         confianza = Math.max(confianza, lectura.confianza);
         r = parsear(textos.join("\n"), confianza);
+        if (esCompleto(r)) return { ...r, fuente: "ocr" };
+        await completarCodigo();
         if (esCompleto(r)) return { ...r, fuente: "ocr" };
         if (r.puntaje === 0) return { ...r, fuente: "ocr" }; // sin ningún indicio: no insistir
       }
