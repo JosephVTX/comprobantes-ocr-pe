@@ -1,4 +1,5 @@
 import type { OcrEngine } from "./ocr/engine.js";
+import sharp from "sharp";
 import type { Modo } from "./ocr/preproceso.js";
 import { parsear } from "./ocr/parser.js";
 import type { LlmClient } from "./llm/openrouter.js";
@@ -8,6 +9,20 @@ import type { Analisis, ComprobanteValido, Resultado } from "./types.js";
 const RESCATE_MIN_SCORE = 2;
 
 const cuenta = (c: ComprobanteValido): number => Object.values(c.campos_detectados).filter(Boolean).length;
+
+/** Ancho máximo de trabajo: más grande solo cuesta tiempo (decodificar y reescalar en cada pasada). */
+const ANCHO_MAX = 2000;
+
+/** Reduce una sola vez las imágenes grandes (nunca agranda) y aplica la orientación EXIF. */
+async function reducir(imagen: Buffer): Promise<Buffer> {
+  try {
+    const { width = 0 } = await sharp(imagen).metadata();
+    if (width <= ANCHO_MAX) return imagen;
+    return await sharp(imagen).rotate().resize({ width: ANCHO_MAX }).jpeg({ quality: 95 }).toBuffer();
+  } catch {
+    return imagen;
+  }
+}
 
 export interface AnalyzerDeps {
   ocr: OcrEngine;
@@ -29,7 +44,8 @@ export interface Analyzer {
  */
 export function createAnalyzer({ ocr, llm, anchos, llmMinScore, log = () => {} }: AnalyzerDeps): Analyzer {
   return {
-    async analizar(imagen) {
+    async analizar(original) {
+      const imagen = await reducir(original);
       const lecturas: { texto: string; confianza: number }[] = [];
       let r: Resultado = parsear("", 0);
       let codigoIntentado = false;
