@@ -19,14 +19,14 @@ app = FastAPI(title="ocr-ppv5-test")
 @lru_cache(maxsize=1)
 def get_ocr():
     # PP-OCRv5 (mismos modelos de PaddleOCR) ejecutado con onnxruntime: funciona en x86 y ARM
-    from rapidocr import OCRVersion, RapidOCR
+    from rapidocr import ModelType, OCRVersion, RapidOCR
 
     return RapidOCR(
         params={
             "Det.ocr_version": OCRVersion.PPOCRV5,
-            "Det.model_type": "mobile",
+            "Det.model_type": ModelType.MOBILE,
             "Rec.ocr_version": OCRVersion.PPOCRV5,
-            "Rec.model_type": "mobile",
+            "Rec.model_type": ModelType.MOBILE,
         }
     )
 
