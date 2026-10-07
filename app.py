@@ -1,10 +1,11 @@
 import hmac
 import os
 import resource
-import tempfile
 import time
 from functools import lru_cache
 
+import cv2
+import numpy as np
 from fastapi import FastAPI, File, Header, HTTPException, UploadFile
 from fastapi.responses import PlainTextResponse
 
@@ -56,10 +57,10 @@ async def ocr(
     if len(data) > MAX_MB * 1024 * 1024:
         raise HTTPException(413, "Imagen demasiado grande")
     t = time.perf_counter()
-    with tempfile.NamedTemporaryFile(suffix=".img") as tmp:
-        tmp.write(data)
-        tmp.flush()
-        res = get_ocr().predict(tmp.name)
+    img = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
+    if img is None:
+        raise HTTPException(415, "No es una imagen valida")
+    res = get_ocr().predict(img)
     lines: list[str] = []
     for r in res:
         lines.extend(r["rec_texts"])
