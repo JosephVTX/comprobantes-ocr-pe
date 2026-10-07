@@ -5,7 +5,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY app.py probe.py .
 # Descarga los modelos en la imagen para que el arranque no dependa de la red
-RUN python -c "from app import get_ocr; get_ocr()"
+RUN python -c "from app import get_ocr; get_ocr()" || echo "warmup fallido (se reintenta al arrancar)"
 ENV PORT=3000
 EXPOSE 3000
 CMD ["sh", "-c", "uvicorn app:app --host 0.0.0.0 --port ${PORT} --workers 1"]
