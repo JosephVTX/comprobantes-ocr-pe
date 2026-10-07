@@ -64,7 +64,7 @@ export function parsear(texto: string, ocrConfidence: number): Resultado {
 
   const codigoOperacion = primero(plano, /operaci[oó]n\s*:?\s*(\d{5,})/i);
   const seguridad =
-    primero(plano, /seguridad\s*:?\s*((?:\d\s?){3,6})/i)?.replace(/\s/g, "") ?? null;
+    primero(plano, /seguridad\s*:?\s*(\d[ \t]?\d[ \t]?\d)(?![ \t]?\d)/i)?.replace(/\s/g, "") ?? null;
 
   const fechaM = plano.match(RE_FECHA);
   const fecha = fechaM?.[0] ?? null;

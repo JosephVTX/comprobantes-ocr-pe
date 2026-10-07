@@ -1,4 +1,5 @@
 import sharp from "sharp";
+import { preprocesar, type Modo } from "./preproceso.js";
 import { createScheduler, createWorker, OEM, PSM, type Worker } from "tesseract.js";
 
 export interface LecturaOcr {
@@ -9,21 +10,10 @@ export interface LecturaOcr {
 
 /** Motor OCR intercambiable (en los tests se reemplaza por uno falso). */
 export interface OcrEngine {
-  leer(imagen: Buffer, ancho: number): Promise<LecturaOcr>;
+  leer(imagen: Buffer, ancho: number, modo?: Modo): Promise<LecturaOcr>;
   /** Lee solo los dígitos a la derecha de la etiqueta "CÓDIGO DE SEGURIDAD" (Yape). */
   leerCodigo?(imagen: Buffer, ancho: number): Promise<string | null>;
   close(): Promise<void>;
-}
-
-function preprocesar(imagen: Buffer, ancho: number): Promise<Buffer> {
-  return sharp(imagen, { sequentialRead: true })
-    .rotate()
-    .grayscale()
-    .normalize()
-    .resize({ width: ancho })
-    .sharpen()
-    .png()
-    .toBuffer();
 }
 
 export interface TesseractOptions {
@@ -54,28 +44,53 @@ export async function createTesseractEngine({ workers, tessdataDir }: TesseractO
 
   return {
     async leerCodigo(imagen, ancho) {
-      const pre = await preprocesar(imagen, ancho);
-      const { data } = await scheduler.addJob("recognize", pre, {}, { blocks: true });
-      const palabras = (data.blocks ?? []).flatMap((b) => b.paragraphs.flatMap((p) => p.lines.flatMap((l) => l.words)));
-      const etiqueta = palabras.find((p) => /seguridad/i.test(p.text));
-      if (!etiqueta) return null;
-      const { width = 0 } = await sharp(pre).metadata();
-      const { x1, y0, y1 } = etiqueta.bbox;
-      const pad = 10;
-      const left = x1 + 5;
-      if (width - left < 20) return null;
-      const recorte = await sharp(pre)
-        .extract({ left, top: Math.max(0, y0 - pad), width: width - left, height: y1 - y0 + 2 * pad })
-        .resize({ height: 120 })
-        .extend({ top: 20, bottom: 20, left: 20, right: 20, background: "#fff" })
-        .png()
-        .toBuffer();
-      const lectura = await (await workerDigitos()).recognize(recorte);
-      const codigo = lectura.data.text.replace(/\D/g, "");
-      return codigo.length >= 3 && codigo.length <= 6 ? codigo : null;
+      const votos = new Map<string, number>();
+      const registrar = (txt: string, conf: number) => {
+        const d = txt.replace(/\D/g, "");
+        if (d.length !== 3) return; // los códigos de Yape son de 3 dígitos
+        votos.set(d, (votos.get(d) ?? 0) + (conf >= 80 ? 2 : 1));
+      };
+      const lector = await workerDigitos();
+
+      for (const modo of ["normal", "enderezado", "invertido", "realzado", "clahe"] as const) {
+        const pre = await preprocesar(imagen, ancho, modo);
+        const { data } = await scheduler.addJob("recognize", pre, {}, { blocks: true });
+        const palabras = (data.blocks ?? []).flatMap((b) => b.paragraphs.flatMap((p) => p.lines.flatMap((l) => l.words)));
+        const etiqueta = palabras.find((p) => /segur/i.test(p.text));
+        if (!etiqueta) continue;
+        const { width = 0 } = await sharp(pre).metadata();
+        const { x1, y0, y1 } = etiqueta.bbox;
+        const left = x1 + 5;
+        if (width - left < 20) continue;
+
+        for (const pad of [10, 18]) {
+          const region = await sharp(pre)
+            .extract({ left, top: Math.max(0, y0 - pad), width: width - left, height: y1 - y0 + 2 * pad })
+            .resize({ height: 120 })
+            .toBuffer();
+          const variantes = [
+            region,
+            await sharp(region).threshold(150).toBuffer(),
+            await sharp(region).negate().toBuffer(),
+            await sharp(region).clahe({ width: 16, height: 16, maxSlope: 3 }).normalize().toBuffer(),
+          ];
+          for (const v of variantes) {
+            const png = await sharp(v).extend({ top: 20, bottom: 20, left: 20, right: 20, background: "#fff" }).png().toBuffer();
+            const l = await lector.recognize(png);
+            registrar(l.data.text, l.data.confidence);
+          }
+        }
+        // con una etiqueta ubicada y lecturas coherentes no hace falta seguir
+        const mejor = [...votos.entries()].sort((x, y) => y[1] - x[1])[0];
+        if (mejor && mejor[1] >= 4) break;
+      }
+
+      const ordenados = [...votos.entries()].sort((x, y) => y[1] + (y[0].length === 3 ? 1 : 0) - (x[1] + (x[0].length === 3 ? 1 : 0)));
+      const top = ordenados[0];
+      return top && top[1] >= 3 ? top[0] : null;
     },
-    async leer(imagen, ancho) {
-      const { data } = await scheduler.addJob("recognize", await preprocesar(imagen, ancho));
+    async leer(imagen, ancho, modo = "normal") {
+      const { data } = await scheduler.addJob("recognize", await preprocesar(imagen, ancho, modo));
       return { texto: data.text, confianza: data.confidence };
     },
     async close() {

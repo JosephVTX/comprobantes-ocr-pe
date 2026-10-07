@@ -107,7 +107,7 @@ describe("analyzer híbrido", () => {
     const ocr = ocrCon(YAPE_SIN_DIGITOS);
     const r = await createAnalyzer({ ...base, ocr, llm }).analizar(img);
 
-    expect(ocr.leer).toHaveBeenCalledTimes(3);
+    expect(ocr.leer).toHaveBeenCalledTimes(11);
     expect(llm.analizar).toHaveBeenCalledTimes(1);
     expect(r).toMatchObject({ fuente: "llm", codigo_seguridad: "291" });
   });
