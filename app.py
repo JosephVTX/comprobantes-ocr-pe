@@ -66,3 +66,13 @@ async def ocr(
         lines.extend(r["rec_texts"])
     ms = round((time.perf_counter() - t) * 1000)
     return PlainTextResponse("\n".join(lines), headers={"X-Elapsed-Ms": str(ms), "X-Peak-Rss-Mb": str(rss_mb())})
+
+
+@app.post("/debug", response_class=PlainTextResponse)
+async def debug(file: UploadFile = File(...), x_api_key: str | None = Header(None)):
+    """Ejecuta el OCR en un subproceso para ver el error real si el proceso muere."""
+    import subprocess
+
+    auth(x_api_key, None)
+    p = subprocess.run(["python", "-X", "faulthandler", "probe.py"], input=await file.read(), capture_output=True, timeout=300)
+    return f"exit={p.returncode}\n--- stdout\n{p.stdout.decode(errors='ignore')}\n--- stderr\n{p.stderr.decode(errors='ignore')[-3000:]}"

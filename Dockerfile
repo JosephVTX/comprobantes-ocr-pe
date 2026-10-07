@@ -3,7 +3,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends libgl1 libglib2
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-COPY app.py .
+COPY app.py probe.py .
 # Descarga los modelos en la imagen para que el arranque no dependa de la red
 RUN python -c "from app import get_ocr; get_ocr()"
 ENV PORT=3000
