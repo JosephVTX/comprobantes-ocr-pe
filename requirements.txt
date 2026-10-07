@@ -1,5 +1,5 @@
-paddlepaddle>=3.0,<4
-paddleocr>=3.2,<4
+paddlepaddle==3.0.0
+paddleocr==3.0.3
 fastapi>=0.115
 uvicorn>=0.30
 python-multipart>=0.0.9
