@@ -22,61 +22,63 @@ describe("extraerJson", () => {
 });
 
 describe("normalizar", () => {
-  it("convierte la respuesta del modelo al formato de comprobante", () => {
-    const r = normalizar({
-      es_comprobante_pago: true,
-      metodo_pago: "Yape",
-      monto: 14,
-      codigo_operacion: "27034291",
-      codigo_seguridad: "291",
-      fecha: "05 oct. 2026",
-      confianza: 7,
-    });
-    expect(r).toMatchObject({
-      es_comprobante_pago: true,
-      banco_o_billetera: "Yape",
-      monto: 14,
-      moneda: "PEN",
-      codigo_seguridad: "291",
-      confianza: 1,
-      entidad: "DESCONOCIDO",
+  it("deja solo los campos mínimos", () => {
+    expect(normalizar({ is_receipt: true, method: "Yape", amount: 14, operation: "27034291", security_code: "291", date: "2026-10-05", time: "18:37", extra: 1 })).toEqual({
+      is_receipt: true,
+      method: "Yape",
+      amount: 14,
+      currency: "PEN",
+      operation: "27034291",
+      security_code: "291",
+      date: "2026-10-05",
+      time: "18:37",
+      receiver: null,
     });
   });
 
-  it("trata como no comprobante si el modelo lo dice o no hay monto", () => {
-    expect(normalizar({ es_comprobante_pago: false }).es_comprobante_pago).toBe(false);
-    expect(normalizar({ es_comprobante_pago: true, monto: 0 }).es_comprobante_pago).toBe(false);
+  it("no es comprobante si el modelo lo dice o no hay monto", () => {
+    expect(normalizar({ is_receipt: false })).toEqual({ is_receipt: false });
+    expect(normalizar({ is_receipt: true, amount: 0 })).toEqual({ is_receipt: false });
+    expect(normalizar({ is_receipt: true, amount: 5, operation: null })).toEqual({ is_receipt: false });
   });
 });
 
 describe("createOpenRouterClient", () => {
   const opts = { apiKey: "sk-test", timeoutMs: 5000 };
+  const ok = '{"is_receipt":true,"amount":10,"method":"Plin","operation":"123"}';
+  const cliente = (f: unknown) => createOpenRouterClient({ ...opts, fetch: f as typeof fetch });
 
-  it("envía la imagen como data URL con la API key y parsea la respuesta", async () => {
-    const fetchMock = vi.fn(async () => respuesta('{"es_comprobante_pago":true,"monto":10,"metodo_pago":"Plin"}'));
-    const r = await createOpenRouterClient({ ...opts, fetch: fetchMock as unknown as typeof fetch }).analizar(imagen);
+  it("usa primero el modelo gratis, con la imagen como data URL", async () => {
+    const fetchMock = vi.fn(async () => respuesta(ok));
+    const r = await cliente(fetchMock).analizar(imagen);
 
-    expect(r).toMatchObject({ es_comprobante_pago: true, monto: 10, metodo_pago: "Plin" });
+    expect(r).toMatchObject({ model: "google/gemma-4-26b-a4b-it:free", receipt: { is_receipt: true, amount: 10, method: "Plin" } });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe("https://openrouter.ai/api/v1/chat/completions");
     expect((init.headers as Record<string, string>).Authorization).toBe("Bearer sk-test");
     const body = JSON.parse(init.body as string);
-    expect(body.model).toBe("inclusionai/ling-3.0-flash-vl");
-    expect(body.provider).toEqual({ only: ["novita/bf16"], allow_fallbacks: false });
-    expect(body.messages[1].content[1].image_url.url).toMatch(/^data:image\/jpeg;base64,/);
+    expect(body.provider).toBeUndefined();
+    expect(body.messages[1].content[0].image_url.url).toMatch(/^data:image\/jpeg;base64,/);
   });
 
-  it("lanza error si OpenRouter responde con error HTTP", async () => {
-    const fetchMock = vi.fn(async () => new Response("{}", { status: 429 }));
-    await expect(
-      createOpenRouterClient({ ...opts, fetch: fetchMock as unknown as typeof fetch }).analizar(imagen),
-    ).rejects.toThrow("429");
+  it("si el gratis falla, usa el de pago con el proveedor más barato", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(new Response("{}", { status: 429 })).mockResolvedValueOnce(respuesta(ok));
+    const r = await cliente(fetchMock).analizar(imagen);
+
+    expect(r.model).toBe("google/gemma-4-26b-a4b-it");
+    const body = JSON.parse((fetchMock.mock.calls[1] as [string, RequestInit])[1].body as string);
+    expect(body.model).toBe("google/gemma-4-26b-a4b-it");
+    expect(body.provider).toEqual({ sort: "price" });
   });
 
-  it("lanza error si la respuesta viene vacía", async () => {
-    const fetchMock = vi.fn(async () => respuesta(""));
-    await expect(
-      createOpenRouterClient({ ...opts, fetch: fetchMock as unknown as typeof fetch }).analizar(imagen),
-    ).rejects.toThrow();
+  it("también cae al de pago si el gratis devuelve JSON inválido", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(respuesta("nada")).mockResolvedValueOnce(respuesta(ok));
+    expect((await cliente(fetchMock).analizar(imagen)).model).toBe("google/gemma-4-26b-a4b-it");
+  });
+
+  it("lanza error si fallan los dos", async () => {
+    const fetchMock = vi.fn(async () => new Response("{}", { status: 500 }));
+    await expect(cliente(fetchMock).analizar(imagen)).rejects.toThrow(/:free: .*500 \| .*500/);
   });
 });

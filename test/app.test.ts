@@ -6,13 +6,7 @@ import { Limiter } from "../src/limiter.js";
 import type { Analisis } from "../src/types.js";
 
 const KEY = "clave-secreta";
-const NO_COMPROBANTE: Analisis = {
-  es_comprobante_pago: false,
-  motivo: "no",
-  puntaje: 0,
-  texto_detectado: "",
-  fuente: "llm",
-};
+const NO_COMPROBANTE: Analisis = { receipt: { is_receipt: false }, model: "m" };
 
 let png: Buffer;
 beforeAll(async () => {
@@ -75,7 +69,7 @@ describe("POST /api/analizar", () => {
     const analizar = vi.fn(async () => NO_COMPROBANTE);
     const res = await post(montar({ analyzer: { analizar } }), png);
     expect(res.status).toBe(200);
-    expect(await res.json()).toMatchObject({ es_comprobante_pago: false, fuente: "llm", _meta: { ms: expect.any(Number) } });
+    expect(await res.json()).toMatchObject({ is_receipt: false, _meta: { ms: expect.any(Number), model: "m" } });
     expect(analizar).toHaveBeenCalledOnce();
   });
 

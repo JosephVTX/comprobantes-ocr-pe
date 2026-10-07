@@ -76,14 +76,8 @@ export function createApp({ analyzer, limiter, apiKeys, authDisabled = false, ma
 
       const t0 = performance.now();
       try {
-        const resultado = await limiter.run(() => analyzer.analizar(buffer));
-        return c.json({
-          ...resultado,
-          _meta: {
-            ms: Math.round(performance.now() - t0),
-            rssMB: Math.round(process.memoryUsage().rss / 1048576),
-          },
-        });
+        const { receipt, model } = await limiter.run(() => analyzer.analizar(buffer));
+        return c.json({ ...receipt, _meta: { ms: Math.round(performance.now() - t0), model } });
       } catch (e) {
         if (e instanceof QueueFullError) {
           c.header("Retry-After", "10");

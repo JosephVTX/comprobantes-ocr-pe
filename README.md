@@ -1,8 +1,7 @@
 # comprobantes-ocr
 
-API (Hono + TypeScript) que lee comprobantes de pago peruanos (Yape, Plin, bancos) con un LLM de visión
-vía OpenRouter: siempre `inclusionai/ling-3.0-flash-vl`, solo por el proveedor `novita/bf16` (sin fallbacks).
-Si la imagen no es un comprobante, se ignora (`es_comprobante_pago: false`).
+API (Hono + TypeScript) que lee comprobantes de pago peruanos (Yape, Plin, bancos) con un LLM de visión vía OpenRouter.
+Primero `google/gemma-4-26b-a4b-it:free`; si da error o se agota el límite, el mismo modelo de pago con el proveedor más barato (`provider.sort: price`).
 
 ## Uso
 
@@ -12,8 +11,14 @@ curl -X POST http://localhost:3000/api/analizar \
 # o multipart: -F file=@comprobante.jpg
 ```
 
+Respuesta (si no es comprobante: `{"is_receipt":false}`):
+
+```json
+{"is_receipt":true,"method":"Yape","amount":14,"currency":"PEN","operation":"27034291","security_code":"291","date":"2026-10-05","time":"18:37","receiver":"Erick San*","_meta":{"ms":2568,"model":"google/gemma-4-26b-a4b-it"}}
+```
+
 `GET /` es un cliente web; `GET /health` es público.
-Códigos: 400 vacío, 401 clave, 413 tamaño, 415 formato, 500 error del LLM, 503 cola llena (`Retry-After`).
+Códigos: 400 vacío, 401 clave, 413 tamaño, 415 formato, 500 fallaron ambos modelos, 503 cola llena (`Retry-After`).
 
 ## Variables de entorno
 
@@ -23,14 +28,11 @@ Ver `.env.example`. `API_KEYS` y `OPENROUTER_API_KEY` son obligatorias.
 ## Desarrollo
 
 ```bash
-pnpm install
-cp .env.example .env
+pnpm install && cp .env.example .env
 pnpm dev
 pnpm test
-pnpm build && pnpm start
 ```
 
 ## Docker / Dokploy
 
-Aplicación desde GitHub, build type **Dockerfile**, puerto 3000. Define `API_KEYS` y `OPENROUTER_API_KEY` en
-las variables de entorno de Dokploy (nunca en la imagen).
+Aplicación desde GitHub, build type **Dockerfile**, puerto 3000. Define `API_KEYS` y `OPENROUTER_API_KEY` en las variables de Dokploy.

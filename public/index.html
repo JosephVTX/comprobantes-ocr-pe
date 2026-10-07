@@ -72,20 +72,18 @@ async function enviar(file) {
 }
 
 function render(d, name) {
-  const meta = d._meta ? ` · ${d._meta.ms} ms · ${d._meta.rssMB} MB` : "";
-  const head = d.es_comprobante_pago ? badge(OK, "Comprobante de pago") : badge(NO, "No es un comprobante (ignorado)");
+  const meta = d._meta ? ` · ${d._meta.ms} ms · ${d._meta.model}` : "";
+  const head = d.is_receipt ? badge(OK, "Comprobante de pago") : badge(NO, "No es un comprobante (ignorado)");
   let body;
-  if (d.es_comprobante_pago) {
-    const campos = [["Método", d.metodo_pago], ["Entidad", d.entidad], ["Tipo", d.tipo], ["Operación", d.codigo_operacion],
-      ["Cód. seguridad", d.codigo_seguridad], ["Fecha", d.fecha], ["Hora", d.hora], ["Receptor", d.receptor],
-      ["Pagador", d.pagador], ["Cuenta/celular", d.numero_cuenta_o_celular], ["Concepto", d.concepto], ["Confianza", d.confianza]];
-    body = `<div class="mt-3 text-2xl font-bold">${esc(d.moneda)} ${Number(d.monto).toFixed(2)}</div>
+  if (d.is_receipt) {
+    const campos = [["Método", d.method], ["Operación", d.operation], ["Cód. seguridad", d.security_code], ["Fecha", d.date], ["Hora", d.time], ["Receptor", d.receiver]];
+    body = `<div class="mt-3 text-2xl font-bold">${esc(d.currency)} ${Number(d.amount).toFixed(2)}</div>
       <div class="my-3 grid gap-2 grid-cols-[repeat(auto-fill,minmax(170px,1fr))]">
         ${campos.filter(([, v]) => v != null && v !== "").map(([k, v]) =>
           `<div class="rounded-lg border border-slate-800 bg-slate-950 px-3 py-2"><small class="block text-xs text-slate-500">${k}</small>${esc(v)}</div>`).join("")}
       </div>`;
   } else {
-    body = `<p class="my-3 text-slate-400">${esc(d.motivo)}</p>`;
+    body = `<p class="my-3 text-slate-400">No se detectó un comprobante.</p>`;
   }
   return `<div class="flex flex-wrap items-center gap-2">${head}
       <span class="text-sm text-slate-500">${esc(name)}${meta}</span>

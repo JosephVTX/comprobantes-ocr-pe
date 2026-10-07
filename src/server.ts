@@ -5,7 +5,7 @@ import { createAnalyzer } from "./analyzer.js";
 import { createApp } from "./app.js";
 import { loadConfig } from "./config.js";
 import { Limiter } from "./limiter.js";
-import { MODELO, createOpenRouterClient } from "./llm/openrouter.js";
+import { INTENTOS, createOpenRouterClient } from "./llm/openrouter.js";
 
 const config = loadConfig();
 
@@ -23,7 +23,7 @@ const app = createApp({
 });
 
 const server = serve({ fetch: app.fetch, port: config.port }, (info) => {
-  console.log(`http://localhost:${info.port} | LLM: ${MODELO} | auth: ${config.authDisabled ? "OFF" : "API key"}`);
+  console.log(`http://localhost:${info.port} | LLM: ${INTENTOS.map((i) => i.model).join(" -> ")} | auth: ${config.authDisabled ? "OFF" : "API key"}`);
 });
 
 for (const sig of ["SIGINT", "SIGTERM"] as const) {
